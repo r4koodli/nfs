@@ -1,0 +1,45 @@
+---
+  - name: Wrte Play book to create a NFS user and zip and UnZip files
+    hosts: all
+    become: true
+    handlers:
+      - name: Restart Service
+        command: 'exportfs -ra'
+        
+    tasks:
+      - name: Zip files in /srv/nfs with a name all_files.tar.gz
+        archive:
+          path:
+            - /srv/nfs/alpha
+            - /srv/nfs/beta
+            - /srv/nfs/cuda
+            - /srv/nfs/delta
+            - /srv/nfs/fifa
+            - /srv/nfs/gamma
+          dest: /srv/nfs/all_files.tar.gz
+          format: gz
+          remove: no
+        register: zip
+      
+      - name: Mount /srv/nfs on node1 (node3 and node4 if available)
+        mount:
+          path: /srv/nfs
+          src: /var/tmp
+          opts: bind
+          fstype: none
+          state: mounted
+        when: inventory_hostname == "node1" or inventory_hostname == "node3" or inventory_hostname == "node4" 
+      - name: Copy files in step 4 to /srv/nfs
+        template: 
+          src: exports.j2
+          dest: /etc/exports
+        register: Export
+        notify: Restart Service
+      
+      - name: mounting
+        mount:
+          name: /nfs
+          src: {{ hostvars[host]['ansible_facts']['default_ipv4']['address'] }}:/srv/nfs
+          fstype: nfs4
+          opts: defaults
+          state: mounted
